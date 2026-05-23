@@ -83,17 +83,21 @@ if video_file and keys_ready:
             c1.metric("流失风险词", sum(stats["流失风险"][w]["count"] for w in stats["流失风险"]))
             c2.metric("信任建立词", sum(stats["信任建立"][w]["count"] for w in stats["信任建立"]))
             c3.metric("行动号召词", sum(stats["行动号召"][w]["count"] for w in stats["行动号召"]))
-            if health >= 60: st.success(f"{health:.0f}/100 表现良好")
-            elif health >= 30: st.warning(f"{health:.0f}/100 需要改进")
-            else: st.error(f"{health:.0f}/100 存在严重问题")
+            if health >= 60:
+                st.success(f"{health:.0f}/100 表现良好")
+            elif health >= 30:
+                st.warning(f"{health:.0f}/100 需要改进")
+            else:
+                st.error(f"{health:.0f}/100 存在严重问题")
             for cat, wd in stats.items():
                 st.write(f"**{cat}**")
                 for w, i in wd.items():
-                    if i["count"] > 0: st.write(f"  · '{w}'：{i['count']}次")
+                    if i["count"] > 0:
+                        st.write(f"  · '{w}'：{i['count']}次")
             st.subheader("改进建议")
             rc = sum(stats["流失风险"][w]["count"] for w in stats["流失风险"])
             tc = sum(stats["信任建立"][w]["count"] for w in stats["信任建立"])
-            if rc > tc*3:
+            if rc > tc * 3:
                 st.write("核心问题：废话过多，建议准备产品手卡，贴禁词提醒")
             else:
                 st.write("话术结构基本健康")
@@ -101,6 +105,6 @@ if video_file and keys_ready:
         os.unlink(video_path)
         os.unlink(audio_path)
     except Exception as e:
-
+        st.error(f"处理失败：{e}")
            
   
