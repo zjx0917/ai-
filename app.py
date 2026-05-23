@@ -1,12 +1,12 @@
 import streamlit as st
 import streamlit.components.v1 as components
-导入re
+import re
 import os
 import tempfile
-导入子进程
+import subprocess
 from aip import AipSpeech
 
-# -------------------- 粒子光感背景特效 --------------------
+# -------------------- Particle background --------------------
 particle_js = """
 <script>
 const canvas = document.createElement('canvas');
@@ -55,7 +55,7 @@ class Particle {
         }
         this.x += this.vx;
         this.y += this.vy;
-如果 (this.x < 0 或 this.x > 宽度) this.vx *= -1;
+        if (this.x < 0 || this.x > width) this.vx *= -1;
         if (this.y < 0 || this.y > height) this.vy *= -1;
         this.vx *= 0.998;
         this.vy *= 0.998;
@@ -125,7 +125,7 @@ animate();
 
 components.html(particle_js, height=0, width=0)
 
-# -------------------- 贾维斯风格全局CSS --------------------
+# -------------------- CSS --------------------
 st.markdown("""
 <style>
     .stApp {
@@ -194,27 +194,29 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-st.set_page_config(page_title="直播领航员", page_icon="🛡️")
-st.title("直播领航员")
-st.markdown("**上传直播录屏 · 自动战术分析 · 话术能量评分**")
+# -------------------- Page config --------------------
+st.set_page_config(page_title="Navigator", page_icon="🛡️")
+st.title("🛡️ Live Navigator")
+st.markdown("**Upload replay · Auto analysis · Speech energy score**")
 st.markdown("---")
 
+# Load secrets
 try:
     BAIDU_APP_ID = st.secrets["BAIDU_APP_ID"]
     BAIDU_API_KEY = st.secrets["BAIDU_API_KEY"]
     BAIDU_SECRET_KEY = st.secrets["BAIDU_SECRET_KEY"]
     keys_ready = True
 except:
-    st.error("🔐 核心密钥未配置，请联系管理员")
+    st.error("Key not configured. Please contact admin.")
     keys_ready = False
 
 keywords = {
-    "🔴 流失风险": ["不是", "不知道", "怎么说呢", "等会儿", "那个那个", "我我我"],
-    "🟢 信任建立": ["干干净净", "给你们看", "收到什么样", "挑出来", "没有区别"],
-    "🟡 行动号召": ["可以看看", "喜欢就拍", "直接带", "多少钱"]
+    "risk": ["not", "dont know", "how to say", "wait", "that that", "I I I"],
+    "trust": ["clean", "show you", "what you get", "picked out", "no difference"],
+    "call_to_action": ["take a look", "grab it", "order now", "how much"]
 }
 
-# -------------------- 音频处理（ffmpeg）--------------------
+# -------------------- Audio processing with ffmpeg --------------------
 def extract_audio(video_path, out_wav):
     subprocess.run(["ffmpeg", "-i", video_path, "-ac", "1", "-ar", "16000", "-sample_fmt", "s16", "-y", out_wav], check=True, capture_output=True)
 
@@ -240,89 +242,90 @@ def recognize_audio(wav_path):
     stat = st.empty()
     for i, c in enumerate(chunks):
         d = get_duration(c)
-        stat.markdown(f"🔍 **识别片段 {i+1}/{len(chunks)}**（{d:.1f}s）")
+        stat.markdown(f"Scanning chunk {i+1}/{len(chunks)} ({d:.1f}s)")
         with open(c, "rb") as f:
             data = f.read()
         res = client.asr(data, 'wav', 16000, {'dev_pid': 1537})
         if res['err_no'] == 0:
             full_text.append(res['result'][0])
         else:
-            st.warning(f"片段{i+1}识别失败：{res['err_msg']}")
+            st.warning(f"Chunk {i+1} failed: {res['err_msg']}")
         prog.progress((i+1)/len(chunks))
         os.unlink(c)
     if chunks:
         os.rmdir(os.path.dirname(chunks[0]))
-    stat.markdown("✅ **转录完成**")
+    stat.markdown("Transcription complete")
     return "".join(full_text)
 
 def analyze_text(text):
     stats = {}
     for cat, words in keywords.items():
         stats[cat] = {}
-        forw在词:
+        for w in words:
             stats[cat][w] = {"count": len([m.start() for m in re.finditer(w, text)])}
-分数 =总和(
--info["count"]*2如果"流失"在分类中则info1
+    score = sum(
+        -info["count"]*2 if "risk" in cat else info["count"]*1
         for cat, wd in stats.items()
-        用于信息在wd。值()
+        for info in wd.values()
     )
-总长度 =len(text.replace(" ", ""))
-健康 =max(0, min(100, 50 + (分数/总分)*1000)) 如果总分 > 00 否则 50
-    返回stats, health
+    total = len(text.replace(" ", ""))
+    health = max(0, min(100, 50 + (score/total)*1000)) if total > 0 else 50
+    return stats, health
 
+# -------------------- UI --------------------
 col1, col2 = st.columns([3,1])
-列1:
-    st.markdown("### 📤 上传录像")
+with col1:
+    st.markdown("### Upload replay")
     video_file = st.file_uploader("", type=["mp4"], label_visibility="collapsed")
 with col2:
-    st.markdown("### ⚡ 状态")
-    如果密钥就绪：
-        st.markdown"🟢 在线")
-    否则:
-        st.markdown("🔴 离网")
+    st.markdown("### Status")
+    if keys_ready:
+        st.markdown("Online")
+    else:
+        st.markdown("Offline")
 
 if video_file and keys_ready:
-    使用tempfile.NamedTemporaryFile(".mp4", delete=False) 作为tmp:
+    with tempfile.NamedTemporaryFile(suffix=".mp4", delete=False) as tmp:
         tmp.write(video_file.read())
         vpath = tmp.name
-st.info(“处理中...”)
-    尝试:
+    st.info("Processing...")
+    try:
         apath = tempfile.mktemp(suffix=".wav")
         extract_audio(vpath, apath)
         text = recognize_audio(apath)
-        st.success("📜 转录完成，可编辑")
-编辑 = st.(“识别文本”, value=文本, 高度=200)
-        如果st.按钮(“开始分析”) 且编辑:
-统计数据，健康 =(已编辑)
-小标题(“⚡ 话术能量”)
+        st.success("Transcription ready, editable")
+        edited = st.text_area("Recognized text", value=text, height=200)
+        if st.button("Analyze") and edited:
+            stats, health = analyze_text(edited)
+            st.subheader("Speech Energy")
             c1, c2, c3 = st.columns(3)
-c1.度量, 求和(统计["流失风险"][权重]["计数"] 按权重在统计["流失风险"
-            c2.metric("🟢信任", sum(stats["🟢 信任建立"][w]["count"] for w in stats["🟢 信任建立"]))
-c3.指标, 总和(统计[" 行动号召"][w]["计数"] 用于w在统计[" 行动号召"
-            如果健康 >=60
-圣.成功f" {健康:}/100 稳定")
-            如果健康 >=30:
-(f"⚠️{健康:
-            否则:
-                st.error(f"💀 {health:.0f}/100 危险")
-对于猫，wd在统计。项中
+            c1.metric("Risk", sum(stats["risk"][w]["count"] for w in stats["risk"]))
+            c2.metric("Trust", sum(stats["trust"][w]["count"] for w in stats["trust"]))
+            c3.metric("CTA", sum(stats["call_to_action"][w]["count"] for w in stats["call_to_action"]))
+            if health >= 60:
+                st.success(f"Energy {health:.0f}/100 Stable")
+            elif health >= 30:
+                st.warning(f"Energy {health:.0f}/100 Warning")
+            else:
+                st.error(f"Energy {health:.0f}/100 Critical")
+            st.markdown("### Word Stats")
+            for cat, wd in stats.items():
                 st.write(f"**{cat}**")
-                 w, i in wd.items():
-                    如果i[“count”] > 0:
-                        st.write(f"  · {w}：{i['count']}次")
-            st.markdown("### 🧠 建议")
-            rc = sum(stats["🔴 流失风险"][w]["count"] for w in stats["🔴 流失风险"])
-            tc = sum(stats["🟢 信任建立"][w]["count"] for w in stats["🟢 信任建立"])
-            如果rc > tc*
-                st.markdown("<div style='background:#1a0a0a;border-left:4px solid #f44;padding:15px;'><strong>⚠️ 风险：</strong>废话过多，准备手卡。</div>", unsafe_allow_html=True)
-            否则:
-圣。标记(, unsafe_allow_html=True)
-            st.caption("直播领航员 · v3.0")
+                for w, i in wd.items():
+                    if i["count"] > 0:
+                        st.write(f"  - {w}: {i['count']}")
+            st.markdown("### Advice")
+            rc = sum(stats["risk"][w]["count"] for w in stats["risk"])
+            tc = sum(stats["trust"][w]["count"] for w in stats["trust"])
+            if rc > tc*3:
+                st.markdown("<div style='background:#1a0a0a;border-left:4px solid #f44;padding:15px;'>Alert: Too many filler words. Prepare script.</div>", unsafe_allow_html=True)
+            else:
+                st.markdown("<div style='background:#0a1a0a;border-left:4px solid #0f6;padding:15px;'>Good job!</div>", unsafe_allow_html=True)
+            st.caption("Live Navigator v3.0")
         os.unlink(vpath)
         os.unlink(apath)
-    except异常ase:
-st.error(f"异常：{e}")
-
+    except Exception as e:
+        st.error(f"Error: {e}")
     
    
 
