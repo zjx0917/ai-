@@ -1,3 +1,2 @@
 streamlit
-pydub
-开放AI
+baidu-aip
