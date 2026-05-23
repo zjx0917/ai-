@@ -19,9 +19,9 @@ except:
     keys_ready = False
 
 keywords = {
-    "risk": ["not", "dont know", "wait", "that that", "I I I"],
-    "trust": ["clean", "show you", "what you get", "no difference"],
-    "action": ["take a look", "grab it", "order now"]
+    "risk": ["不是", "不知道", "怎么说呢", "等会儿", "那个那个", "我我我"],
+    "trust": ["干干净净", "给你们看", "收到什么样", "挑出来", "没有区别"],
+    "action": ["可以看看", "喜欢就拍", "直接带", "多少钱"]
 }
 
 def extract_audio(video_path, out_wav):
