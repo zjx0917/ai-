@@ -70,36 +70,37 @@ if video_file and keys_ready:
     st.info("正在处理，请稍候...")
     try:
         sound = AudioSegment.from_file(video_path).set_channels(1).set_frame_rate(16000)
-        使用tempfile.NamedTemporaryFile后缀=“.wav”, 删除=) 作为at:
-声音。导出(at。名称, 格式=“wav”)
-音频路径 = at。名称
+        with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as at:
+            sound.export(at.name, format="wav")
+            audio_path = at.name
         text = recognize_audio(audio_path)
         st.success("识别完成，可编辑修正后点击分析")
         edited_text = st.text_area("识别结果（可编辑）", value=text, height=200)
-        如果按钮(“开始分析”, 类型=“primary”)且已编辑文本:
-统计信息, 健康状况 =分析文本(已编辑文本)
-st.子标题(“话术健康分”)
+        if st.button("开始分析", type="primary") and edited_text:
+            stats, health = analyze_text(edited_text)
+            st.subheader("话术健康分")
             c1, c2, c3 = st.columns(3)
-c1.指标(“流失风险词”, 求和(统计[“流失风险”][w][“计数”] 用于w在统计[“流失风险”]))
-c2.指标("信任建立词", 总和(统计["信任建立"][w]["计数"]w在统计["信任建立"]))
-c3.指标(“行动号召词”, 汇总(统计[“行动号召”][w][“计数”] 用于w在统计[“行动号召”]))
-            如果健康 >=60成功(f"{健康:}/100 表现良好")
-如果健康 >=30: st.警告(f"{健康:.0f}/100 需要改进")
-“健康:/100 存在严重问题”)
-            对于猫, wd在统计.项中:
+            c1.metric("流失风险词", sum(stats["流失风险"][w]["count"] for w in stats["流失风险"]))
+            c2.metric("信任建立词", sum(stats["信任建立"][w]["count"] for w in stats["信任建立"]))
+            c3.metric("行动号召词", sum(stats["行动号召"][w]["count"] for w in stats["行动号召"]))
+            if health >= 60: st.success(f"{health:.0f}/100 表现良好")
+            elif health >= 30: st.warning(f"{health:.0f}/100 需要改进")
+            else: st.error(f"{health:.0f}/100 存在严重问题")
+            for cat, wd in stats.items():
                 st.write(f"**{cat}**")
                 for w, i in wd.items():
-                    如果i["count"] > 0: st.write(f" · '{w}'：{i['count']}次")
+                    if i["count"] > 0: st.write(f"  · '{w}'：{i['count']}次")
             st.subheader("改进建议")
             rc = sum(stats["流失风险"][w]["count"] for w in stats["流失风险"])
             tc = sum(stats["信任建立"][w]["count"] for w in stats["信任建立"])
-            如果rc > tc*3:
-写(“核心问题：废话过多，建议准备产品手卡，贴禁词提醒”)
-            否则:
-st.write(“话术结构基本健康”)
-st.caption(“领航员·AI驱动的人机协同直播先行者”)
+            if rc > tc*3:
+                st.write("核心问题：废话过多，建议准备产品手卡，贴禁词提醒")
+            else:
+                st.write("话术结构基本健康")
+            st.caption("领航员·AI驱动的人机协同直播先行者")
         os.unlink(video_path)
-操作系统.删除(音频路径)
-    except异常ase:
-状态.错误(f"处理失败：{e}")
+        os.unlink(audio_path)
+    except Exception as e:
 
+           
+  
